@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+work/
+outputs/
+*.pdf
+*.zip
+manifest.json
+preferences.json
