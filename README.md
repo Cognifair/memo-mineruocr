@@ -68,9 +68,19 @@ python -B scripts/workflow.py collect "工作目录/job/manifest.json" --chunk p
 
 # 所有分片完成后生成正式交付目录；不联网、不覆盖已有目录
 python -B scripts/workflow.py merge "工作目录/job/manifest.json" "交付目录/完整文档"
+
+# 复核逐页覆盖与表格块；只读结果 ZIP
+python -B scripts/check_coverage.py "工作目录/job/manifest.json"
 ```
 
 对清单中的每个分片分别执行 submit / collect；不要只处理示例中的 `part-0001`。可通过 prepare 的 `--max-pages` 和 `--max-mb` 调整限制，但须符合官网当前约束。
+
+两个可选参数：
+
+- `collect --no-proxy`：本次请求忽略 `HTTP_PROXY/HTTPS_PROXY`。本机代理（Clash 等）会让结果下载域名握手失败时使用。
+- `submit --replace-batch`：只用于「任务已创建但文件始终没上传成功」的分片；旧 batch 记进 `abandoned_batches` 而不会被抹掉，已 `submitted` 的分片拒绝替换。
+
+执行顺序、坑与复核清单见 [references/troubleshooting.md](references/troubleshooting.md)。
 
 脚本使用官网 v4 精准解析 API，默认 VLM 并启用表格/公式识别；不与开源 MinerU 本地服务的 `/v1` 接口混用。本地非 MinerU 路线可以复用 PDF 拆分，但本地输出须按真实格式合并，不能伪造云端任务清单。
 
@@ -94,7 +104,9 @@ python -B scripts/workflow.py merge "工作目录/job/manifest.json" "交付目�
 - [SKILL.md](SKILL.md)：Agent 执行规则和授权边界。
 - [references/local-ocr.md](references/local-ocr.md)：本地非 MinerU 路线。
 - [references/cloud-api.md](references/cloud-api.md)：注册、Token、官网接口与续跑说明。
+- [references/troubleshooting.md](references/troubleshooting.md)：跑通路径、常见坑（上传签名 403、代理断流、`waiting-file` 恢复、Token 给法）与复核清单。
 - [scripts/workflow.py](scripts/workflow.py)：PDF 拆分、提交、收集与合并。
+- [scripts/check_coverage.py](scripts/check_coverage.py)：逐页覆盖与表格块复核，只读结果 ZIP。
 
 ```text
 python -B scripts/test_workflow.py

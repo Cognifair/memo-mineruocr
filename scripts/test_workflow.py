@@ -1,12 +1,16 @@
 """Offline behavioral checks. No real Token, cloud upload or OCR billing."""
+import contextlib
 import importlib.util
 import io
 import json
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import urllib.error
+import urllib.request
 import zipfile
 
 from pypdf import PdfReader, PdfWriter
@@ -14,6 +18,11 @@ from pypdf import PdfReader, PdfWriter
 SPEC = importlib.util.spec_from_file_location("workflow", Path(__file__).with_name("workflow.py"))
 w = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(w)
+
+COVERAGE_SPEC = importlib.util.spec_from_file_location("check_coverage",
+                                                       Path(__file__).with_name("check_coverage.py"))
+coverage = importlib.util.module_from_spec(COVERAGE_SPEC)
+COVERAGE_SPEC.loader.exec_module(coverage)
 
 
 class Response(io.BytesIO):
@@ -197,6 +206,105 @@ class WorkflowTests(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 w.safe_url(url)
         self.assertEqual(w.safe_url("https://cdn-mineru.openxlab.org.cn/x"), "https://cdn-mineru.openxlab.org.cn/x")
+
+    def test_signed_upload_keeps_content_type_empty(self):
+        # urllib injects 'application/x-www-form-urlencoded' for any request with a body; OSS signs
+        # that header and answers 403 SignatureDoesNotMatch unless it stays explicitly empty.
+        signed_url = "https://mineru.oss-cn-shanghai.aliyuncs.com/upload?signature=local-test"
+        with patch.dict(os.environ, {"MINERU_TOKEN": "offline"}), patch.object(w, "api", return_value={
+                "batch_id": "batch-test", "file_urls": [signed_url]}), patch.object(w, "request", return_value=Response()) as put:
+            w.submit(self.manifest, "part-0001", True)
+        headers = put.call_args.kwargs["headers"]
+        self.assertEqual(headers.get("Content-Type"), "")
+        self.assertNotIn("Authorization", headers)
+
+    def test_waiting_file_batch_can_be_replaced_only_once_per_upload(self):
+        data = self.data()
+        data["chunks"][0].update(batch_id="batch-old", state="upload_unknown")
+        w.save(self.manifest, data)
+        with patch.dict(os.environ, {"MINERU_TOKEN": "offline"}), patch.object(w, "api", return_value={
+                "batch_id": "batch-new", "file_urls": ["https://mineru.net/upload"]}), patch.object(w, "request", return_value=Response()):
+            self.assertEqual(w.submit(self.manifest, "part-0001", True, "vlm", True)["status"], "submitted")
+        chunk = self.data()["chunks"][0]
+        self.assertEqual(chunk["batch_id"], "batch-new")
+        self.assertEqual([entry["batch_id"] for entry in chunk["abandoned_batches"]], ["batch-old"])
+        with patch.object(w, "api") as called, self.assertRaisesRegex(ValueError, "duplicate"):
+            w.submit(self.manifest, "part-0001", True, "vlm", True)
+        called.assert_not_called()
+        self.assertEqual(self.data()["chunks"][0]["batch_id"], "batch-new")
+
+    def test_no_proxy_override_bypasses_environment_proxies(self):
+        def proxy_handlers(opener):
+            return [h for h in opener.handlers if isinstance(h, urllib.request.ProxyHandler)]
+
+        self.addCleanup(setattr, w, "PROXY_OVERRIDE", None)
+        with patch.dict(os.environ, {"HTTPS_PROXY": "http://127.0.0.1:9"}):
+            w.PROXY_OVERRIDE = None
+            handlers = proxy_handlers(w.http_opener())
+            self.assertEqual(len(handlers), 1)
+            self.assertEqual(handlers[0].proxies.get("https"), "http://127.0.0.1:9")
+            # urllib drops proxy handling entirely for an empty mapping: no proxy handler remains.
+            w.PROXY_OVERRIDE = {}
+            self.assertEqual(proxy_handlers(w.http_opener()), [])
+
+    def test_cli_no_proxy_flag_sets_the_override(self):
+        self.addCleanup(setattr, w, "PROXY_OVERRIDE", None)
+        argv = ["workflow.py", "collect", str(self.manifest), "--chunk", "part-0001", "--no-proxy"]
+        with patch.dict(os.environ, {"MINERU_TOKEN": "offline"}), patch.object(sys, "argv", argv), \
+                patch.object(w, "collect", return_value={"status": "running"}), patch.object(sys, "stdout", io.StringIO()):
+            self.assertEqual(w.main(), 0)
+        self.assertEqual(w.PROXY_OVERRIDE, {})
+
+    def test_api_rejection_reports_code_and_message(self):
+        body = json.dumps({"code": -10001, "msg": "token invalid"}).encode()
+        with patch.object(w, "request", return_value=Response(body)):
+            with self.assertRaisesRegex(RuntimeError, "code=-10001.*token invalid"):
+                w.api("/file-urls/batch", "offline-token")
+
+    def test_transport_errors_name_the_host_and_mention_the_proxy(self):
+        url = "https://mineru.oss-cn-shanghai.aliyuncs.com/upload"
+        rejection = urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
+        with patch.object(w, "http_opener") as opener:
+            opener.return_value.open.side_effect = rejection
+            with self.assertRaisesRegex(RuntimeError, "HTTP 403 from mineru.oss-cn-shanghai.aliyuncs.com"):
+                w.request(url)
+            opener.return_value.open.side_effect = urllib.error.URLError("boom")
+            with self.assertRaisesRegex(RuntimeError, "no-proxy"):
+                w.request("https://mineru.net/api/v4/x")
+
+    def test_coverage_check_flags_pages_without_content(self):
+        data = self.data()
+        chunk = data["chunks"][0]
+        target = self.job / "results" / (chunk["id"] + ".zip")
+        blocks = [{"page_idx": 0, "type": "text", "text": "x" * 50},
+                  {"page_idx": 1, "type": "table", "text": "", "table_body": "<table></table>"}]
+        with zipfile.ZipFile(target, "w") as archive:
+            archive.writestr("full.md", "x")
+            archive.writestr("doc_content_list.json", json.dumps(blocks))
+        chunk.update(state="done", zip=target.relative_to(self.job).as_posix(), zip_sha256=w.sha(target))
+        w.save(self.manifest, data)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            status = coverage.report(self.manifest, 40, False)
+        text = output.getvalue()
+        self.assertEqual(status, 1)
+        self.assertIn("PAGES WITH NO CONTENT: [3]", text)      # chunk p1-3, page_idx 2 is missing
+        self.assertIn("tables: 1 blocks, 1 with HTML rows, 0 empty", text)
+        self.assertIn("not collected yet", text)               # the other two chunks have no result
+
+    def test_coverage_check_is_clean_when_every_page_returns_content(self):
+        data = self.data()
+        for index, chunk in enumerate(data["chunks"]):
+            target = self.job / "results" / (chunk["id"] + ".zip")
+            pages = chunk["end"] - chunk["start"] + 1
+            blocks = [{"page_idx": page, "type": "text", "text": "y" * 60} for page in range(pages)]
+            with zipfile.ZipFile(target, "w") as archive:
+                archive.writestr("full.md", "x")
+                archive.writestr(f"doc{index}_content_list.json", json.dumps(blocks))
+            chunk.update(state="done", zip=target.relative_to(self.job).as_posix(), zip_sha256=w.sha(target))
+        w.save(self.manifest, data)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(coverage.report(self.manifest, 40, False), 0)
 
 
 if __name__ == "__main__":

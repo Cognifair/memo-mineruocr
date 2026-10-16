@@ -2,10 +2,10 @@
 name: memo-mineruocr
 description: Memo-MinerUOCR，识别 PDF、扫描件和文档图片并交付 Markdown，支持大 PDF 按页数和大小拆分、MinerU 云端任务续跑、图片引用整理与有序合并。首次使用先询问本地非 MinerU OCR 或 MinerUOCR；后者引导注册并安全配置 Token。不负责知识拆解、制卡或 Markji 写入。
 metadata:
-  version: "1.0.1"
+  version: "1.1.0"
 ---
 
-# Memo-MinerUOCR v1.0.1
+# Memo-MinerUOCR v1.1.0
 
 调用名 `$memo-mineruocr`；展示名「Memo-MinerUOCR」。它是 `memo-cardest` 的可选材料识别支链，也可独立把大文档转为 Markdown。OCR 结果不是已制成的卡片；不要自动总结、删减原文或调用 Markji。
 
@@ -27,9 +27,9 @@ metadata:
 
 1. 打开 [MinerU 官网](https://mineru.net/)，注册或登录。
 2. 进入顶部「API」→「API 管理 / Token 管理」→创建 Token →复制；入口 [API 管理](https://mineru.net/apiManage)，说明见 [官方 API 文档](https://mineru.net/apiManage/docs)。页面名称可能改变，以当前页面为准；不能把文档页当成已创建 Token。
-3. 在使用者本机通过安全输入将 Token 交给当前进程环境变量 `MINERU_TOKEN`，或使用环境提供的秘密输入工具。不要让用户把 Token 直接贴在聊天、命令参数、技能文件或 GitHub 中。PowerShell 安全输入示例见 cloud-api 参考。
+3. 在使用者本机通过安全输入将 Token 交给当前进程环境变量 `MINERU_TOKEN`，或使用环境提供的秘密输入工具。不要让用户把 Token 直接贴在聊天、命令参数、技能文件或 GitHub 中。PowerShell 安全输入示例见 cloud-api 参考；三种可用给法（当前进程安全输入、用户级环境变量、客户端秘密注入）见 [references/troubleshooting.md](references/troubleshooting.md)。
 
-只检查变量是否存在，不显示值/长度/前后缀，不读取不相关凭据。没有安全输入通道时交由用户配置，暂停实际云端调用。不得代注册、代登录、购买套餐或猜收费。当前公开接口的配额不代表永久免费；正式批处理前重新确认官网限制和费用，收费或额度不足时停下询问。
+只检查变量是否存在，不显示值/长度/前后缀，不读取不相关凭据。Token 一旦出现在聊天或日志里，建议用户到 API 管理页轮换。没有安全输入通道时交由用户配置，暂停实际云端调用。不得代注册、代登录、购买套餐或猜收费。当前公开接口的配额不代表永久免费；正式批处理前重新确认官网限制和费用，收费或额度不足时停下询问。
 
 ## 大文件工作流
 
@@ -42,16 +42,19 @@ python -B scripts/workflow.py prepare "原文件.pdf" "工作目录/job"
 python -B scripts/workflow.py submit "工作目录/job/manifest.json" --chunk part-0001 --allow-upload
 python -B scripts/workflow.py collect "工作目录/job/manifest.json" --chunk part-0001
 python -B scripts/workflow.py merge "工作目录/job/manifest.json" "交付目录/完整文档"
+python -B scripts/check_coverage.py "工作目录/job/manifest.json"
 ```
 
 命令均以本技能目录为工作目录，或使用脚本绝对路径。`prepare`、`merge` 不联网；只有明确授权后才能传 `--allow-upload`。云端脚本针对官方 **v4 精准解析 API**，不是 MinerU 本地 4.0 `/v1` API；不要混用版本和字段。
+
+`submit` 另有两个恢复向参数：`--replace-batch` 只用于「已建任务但文件始终没上传成功」的分片，旧 batch 记进 `abandoned_batches` 而不是被抹掉，已 `submitted` 的分片拒绝替换；`collect --no-proxy` 让本次请求忽略 `HTTP_PROXY/HTTPS_PROXY`，本机代理破坏结果下载时使用。完整执行顺序、坑与复核清单见 [references/troubleshooting.md](references/troubleshooting.md)。
 
 1. **规划和拆分**：核对连续页段、文件哈希和每片实际字节数。脚本按固定连续页段分片，超大分片递归二分；如章节书签可明确改善边界，先规划页段再实现同等校验。不要声称固定分片自动识别了章节。
 2. **确认上传**：说明文件名、总页数、分片数、云端服务和预计配额；用户明确要求云端处理当前文件通常已覆盖该范围，但历史路线偏好或 Token 本身不是上传授权。目录范围不明确时先问。
 3. **提交和续跑**：按分片逐个 `submit`，默认 VLM 并保留表格/公式识别。清单记录 batch ID、状态与结果哈希；已提交分片不再新建任务。`collect` 每次只查询一次，未完成时稍后用同一命令继续，不启动后台死循环。并发和频率服从官网限制。
 4. **失败处理**：认证失败、额度不足或请求限流时停下说明；429/暂时故障按官方建议有界退避。提交结果不明、上传结果不明时先查询已知任务，不盲目重提或产生重复计费。脚本不会持久化签名上传 URL；上传失败后若服务仍等待文件，先核实任务和用户是否接受新任务，再人工协调，不擅自抹去清单。
 5. **有序合并**：全部分片成功后才生成正式成品。脚本校验完整页段、结果 ZIP 的哈希和安全路径，将素材按分片命名空间整理，重写常见 Markdown、引用式图片和 HTML `src/href` 的本地链接，拒绝缺失素材。不覆盖已有输出目录。远程素材仅保留引用并报告，不擅自联网补抓。
-6. **语义与视觉复核**：重点抽查每个分片的首尾、复杂表格/公式、图片引用和重复页眉。页段齐全只证明覆盖范围，不证明 OCR 无漏字。跨页表格或段落断裂时优先补解析边界窗口并根据原始页码替换对应内容；补解析本身仍受上传和配额授权约束。默认不重叠分片、不做模糊全文去重；脚本不自动把断表拼成“完美表格”。
+6. **语义与视觉复核**：先跑 `scripts/check_coverage.py` 拿逐页 blocks/字符数与表格块统计，再重点抽查每个分片的首尾、复杂表格/公式、图片引用和重复页眉。页段齐全只证明覆盖范围，不证明 OCR 无漏字。跨页表格或段落断裂时优先补解析边界窗口并根据原始页码替换对应内容；补解析本身仍受上传和配额授权约束。默认不重叠分片、不做模糊全文去重；脚本不自动把断表拼成“完美表格”。
 
 ## 交付与支链
 
@@ -63,4 +66,4 @@ python -B scripts/workflow.py merge "工作目录/job/manifest.json" "交付目�
 
 ## 验证
 
-`python -B scripts/test_workflow.py` 使用临时本地 PDF、模拟 API 和 ZIP，验证分片覆盖、大小限制、失败续跑、素材重命名、缺图/路径穿越拒绝及完整合并；不会访问真实 MinerU、使用真实 Token 或产生 OCR 费用。离线测试通过不代表真实云端联调成功。
+`python -B scripts/test_workflow.py` 使用临时本地 PDF、模拟 API 和 ZIP，验证分片覆盖、大小限制、失败续跑、素材重命名、缺图/路径穿越拒绝及完整合并；另覆盖签名上传的空 `Content-Type`、`--replace-batch` 的 `abandoned_batches` 记录、`--no-proxy` 绕开环境代理、API 拒绝时回显 `code`/`msg`、传输错误报出 host，以及 `check_coverage.py` 对空页的判定。它不会访问真实 MinerU、使用真实 Token 或产生 OCR 费用。离线测试通过不代表真实云端联调成功。

@@ -45,11 +45,13 @@ Agent 轻量接口免 Token，但有更小的大小/页数限制；其概述与�
 
    `code=0` 后读取 `data.batch_id`、`data.file_urls`。先记录 batch ID，再上传；签名 URL 只在内存使用，不记录或打印。提交超时可能已创建任务，不能直接自动再提交。
 
-2. 使用返回的签名 URL `PUT` 原始文件字节，无需 Content-Type，**不携带 MinerU Token**。上传后官网会自动创建解析任务，不另行提交。脚本关闭重定向，防止 Authorization 跨域泄漏；签名地址的源和协议不符合核验范围时停止。
-3. `GET https://mineru.net/api/v4/extract-results/batch/{batch_id}`，仅 API 请求带 Token。在 `data.extract_result` 按 `data_id` 对应分片；等待中的任务以后继续查，不重传原件。`done` 时取得 `full_zip_url`；`failed` 记录错误状态，不把服务返回的原始错误正文写到公开报告。
-4. 不带 Token 下载 ZIP。脚本只接受 HTTPS、无用户信息且域名属于当前核验的官方/对象存储后缀；官网更改下载域名时先核实再调整，不把拒绝访问当成自动扩大网络边界的授权。
+2. 使用返回的签名 URL `PUT` 原始文件字节，**不携带 MinerU Token**。上传后官网会自动创建解析任务，不另行提交。PUT 的 `Content-Type` 必须保持**显式空值**：Python 的 urllib 会为带 body 的请求自动补 `application/x-www-form-urlencoded`，而 OSS 把这个头计入待签名字符串，签名随即失配并返回 403 `SignatureDoesNotMatch`（报错 host 是 `*.aliyuncs.com`，与 mineru.net 的额度/限流 403 不同）。脚本关闭重定向，防止 Authorization 跨域泄漏；签名地址的源和协议不符合核验范围时停止。
+3. `GET https://mineru.net/api/v4/extract-results/batch/{batch_id}`，仅 API 请求带 Token。在 `data.extract_result` 按 `data_id` 对应分片；等待中的任务以后继续查，不重传原件。`done` 时取得 `full_zip_url`；`failed` 记录错误状态，不把服务返回的原始错误正文写到公开报告。若某分片的文件始终没上传成功，该 batch 会一直停在 `waiting-file`，其签名地址不持久化、无法续传同一任务；先查询核实，再按用户意见用 `submit --replace-batch` 新建任务，旧 batch 记入 `abandoned_batches`。
+4. 不带 Token 下载 ZIP。脚本只接受 HTTPS、无用户信息且域名属于当前核验的官方/对象存储后缀；官网更改下载域名时先核实再调整，不把拒绝访问当成自动扩大网络边界的授权。下载域名可能被使用者本机的 HTTP 代理破坏（表现为 `SSLEOFError` / `Cloud transport failed`，而 `api.mineru.net` 正常）；这种情况用 `collect --no-proxy` 直连，不要改判为额度或认证故障，也不要因此重提任务。
 
 `workflow.py submit/collect` 不休眠、不无限轮询。未知上传状态保留现场；已知 batch 的 `collect` 可重复执行。成功 ZIP 保存哈希，合并前重新验证；结果下载失败仍保留 batch ID，重跑 collect 不重新提交 OCR。
+
+失败信息的边界：API 信封 `code != 0` 时脚本回显 `code` 与截断后的 `msg`（协议状态字段，用于区分额度、Token 与限流），HTTP 错误只报状态码与 host、不打印响应正文——上传失败的正文含 OSS AccessKeyId 与签名。诊断时也不要把这些正文贴进聊天、日志或仓库。
 
 ## 合并边界
 

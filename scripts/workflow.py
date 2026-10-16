@@ -136,6 +136,19 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+# None: honour HTTP_PROXY/HTTPS_PROXY from the environment. {}: --no-proxy was requested.
+PROXY_OVERRIDE = None
+
+
+def http_opener():
+    handlers = [NoRedirect()]
+    if PROXY_OVERRIDE is not None:
+        # Passing an empty mapping makes build_opener drop proxy handling altogether, which is the
+        # supported way to force a direct connection for hosts a local proxy keeps resetting.
+        handlers.append(urllib.request.ProxyHandler(PROXY_OVERRIDE))
+    return urllib.request.build_opener(*handlers)
+
+
 def safe_url(url):
     parsed = urllib.parse.urlsplit(url)
     host = (parsed.hostname or "").lower()
@@ -149,12 +162,16 @@ def request(url, method="GET", data=None, headers=None):
     safe_url(url)
     req = urllib.request.Request(url, data=data, method=method, headers=headers or {})
     try:
-        return urllib.request.build_opener(NoRedirect()).open(req, timeout=30)
+        return http_opener().open(req, timeout=30)
     except urllib.error.HTTPError as error:
-        # Do not expose bodies, signed URLs or authentication headers.
-        raise RuntimeError(f"HTTP {error.code}; stop and inspect credentials, quota or rate limit") from None
+        # Never expose bodies, signed URLs or authentication headers. The host is safe to name and
+        # is what tells an API rejection (mineru.net) apart from a rejected signed upload
+        # (mineru.oss-*.aliyuncs.com), which has different causes.
+        host = urllib.parse.urlsplit(url).hostname or "cloud"
+        raise RuntimeError(f"HTTP {error.code} from {host}; stop and inspect credentials, quota or rate limit") from None
     except (urllib.error.URLError, TimeoutError, OSError):
-        raise RuntimeError("Cloud transport failed; preserve task state and do not blindly resubmit") from None
+        raise RuntimeError("Cloud transport failed; preserve task state and do not blindly resubmit"
+                           " (a local HTTP proxy is the usual cause; retry with --no-proxy)") from None
 
 
 def api(path, token, payload=None):
@@ -168,7 +185,11 @@ def api(path, token, payload=None):
         raise ValueError("API response exceeds limit")
     body = json.loads(content)
     if body.get("code") != 0:
-        raise RuntimeError("MinerU rejected request; inspect status locally without exposing secrets")
+        # The API envelope's code/msg are protocol status fields, not credentials or signed URLs;
+        # naming them is what makes quota, token and rate-limit failures distinguishable.
+        message = str(body.get("msg", ""))[:200]
+        raise RuntimeError(f"MinerU rejected the request (code={body.get('code')}, msg={message!r});"
+                           " check quota, Token and rate limit before retrying")
     return body["data"]
 
 
@@ -186,14 +207,24 @@ def token_value():
     return value
 
 
-def submit(manifest, part, allow_upload=False, model="vlm"):
+def submit(manifest, part, allow_upload=False, model="vlm", replace_batch=False):
     if not allow_upload:
         raise ValueError("Explicit file-scope upload consent is required (--allow-upload)")
     with locked(manifest):
         data = load(manifest)
         chunk = get_chunk(data, part)
         if chunk.get("batch_id"):
-            return {"status": "already_submitted", "chunk": part, "next": "collect"}
+            if not replace_batch:
+                return {"status": "already_submitted", "chunk": part, "next": "collect"}
+            if chunk["state"] == "submitted":
+                raise ValueError("Chunk was already uploaded; refusing to create a duplicate task")
+            # A batch that never received its file stays "waiting-file" forever and cannot be reused
+            # (its signed URL is not persisted). Keep the record instead of erasing it.
+            chunk.setdefault("abandoned_batches", []).append(
+                {"batch_id": chunk["batch_id"], "state": chunk["state"],
+                 "reason": "replaced after an upload that never completed"})
+            chunk["batch_id"] = None
+            chunk["state"] = "prepared"
         if chunk["state"] != "prepared":
             raise ValueError("Submission result unknown; review before creating another task")
         token = token_value()
@@ -208,8 +239,12 @@ def submit(manifest, part, allow_upload=False, model="vlm"):
         save(manifest, data)
         source = inside(manifest.parent, chunk["file"])
         # File objects are streamed by urllib/http.client; never attach API headers to storage.
+        # Content-Type must be explicitly empty: urllib would otherwise inject
+        # 'application/x-www-form-urlencoded', OSS folds that header into the signature string and
+        # answers 403 SignatureDoesNotMatch for a URL that was signed without it.
         with source.open("rb") as stream, request(result["file_urls"][0], method="PUT", data=stream,
-                                                 headers={"Content-Length": str(source.stat().st_size)}) as response:
+                                                 headers={"Content-Length": str(source.stat().st_size),
+                                                          "Content-Type": ""}) as response:
             if response.status not in (200, 201, 204):
                 raise RuntimeError("Upload not acknowledged; query existing task first")
         chunk["state"] = "submitted"
@@ -405,18 +440,28 @@ def main():
         command = commands.add_parser(action)
         command.add_argument("manifest", type=Path)
         command.add_argument("--chunk", required=True)
+        command.add_argument("--no-proxy", action="store_true",
+                             help="ignore HTTP_PROXY/HTTPS_PROXY for this run; needed when a local "
+                                  "proxy breaks the result download")
         if action == "submit":
             command.add_argument("--allow-upload", action="store_true")
             command.add_argument("--model", choices=["vlm", "pipeline"], default="vlm")
+            command.add_argument("--replace-batch", action="store_true",
+                                 help="the recorded batch never received its file; keep it in "
+                                      "abandoned_batches and create a new one")
     joined = commands.add_parser("merge")
     joined.add_argument("manifest", type=Path)
     joined.add_argument("output", type=Path)
     args = parser.parse_args()
     try:
+        if getattr(args, "no_proxy", False):
+            global PROXY_OVERRIDE
+            PROXY_OVERRIDE = {}
         if args.action == "prepare":
             result = prepare(args.source, args.job, args.max_pages, args.max_mb)
         elif args.action == "submit":
-            result = submit(args.manifest.resolve(), args.chunk, args.allow_upload, args.model)
+            result = submit(args.manifest.resolve(), args.chunk, args.allow_upload, args.model,
+                            args.replace_batch)
         elif args.action == "collect":
             result = collect(args.manifest.resolve(), args.chunk)
         else:
