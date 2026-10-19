@@ -2,10 +2,10 @@
 name: memo-mineruocr
 description: Memo-MinerUOCR，识别 PDF、扫描件和文档图片并交付 Markdown，支持大 PDF 按页数和大小拆分、MinerU 云端任务续跑、图片引用整理与有序合并。首次使用先询问本地非 MinerU OCR 或 MinerUOCR；后者引导注册并安全配置 Token。不负责知识拆解、制卡或 Markji 写入。
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
-# Memo-MinerUOCR v1.1.0
+# Memo-MinerUOCR v1.2.0
 
 调用名 `$memo-mineruocr`；展示名「Memo-MinerUOCR」。它是 `memo-cardest` 的可选材料识别支链，也可独立把大文档转为 Markdown。OCR 结果不是已制成的卡片；不要自动总结、删减原文或调用 Markji。
 
@@ -27,9 +27,31 @@ metadata:
 
 1. 打开 [MinerU 官网](https://mineru.net/)，注册或登录。
 2. 进入顶部「API」→「API 管理 / Token 管理」→创建 Token →复制；入口 [API 管理](https://mineru.net/apiManage)，说明见 [官方 API 文档](https://mineru.net/apiManage/docs)。页面名称可能改变，以当前页面为准；不能把文档页当成已创建 Token。
-3. 在使用者本机通过安全输入将 Token 交给当前进程环境变量 `MINERU_TOKEN`，或使用环境提供的秘密输入工具。不要让用户把 Token 直接贴在聊天、命令参数、技能文件或 GitHub 中。PowerShell 安全输入示例见 cloud-api 参考；三种可用给法（当前进程安全输入、用户级环境变量、客户端秘密注入）见 [references/troubleshooting.md](references/troubleshooting.md)。
+3. 在使用者本机通过安全输入将 Token 交给当前进程环境变量 `MINERU_TOKEN`，或使用环境提供的秘密输入工具。不要让用户把 Token 直接贴在聊天、命令参数、技能文件或 GitHub 中；用户已经在聊天里给出时不要要求重发，按下一节流程处理并建议之后到 API 管理页轮换。PowerShell 安全输入示例见 cloud-api 参考；三种可用给法（当前进程安全输入、用户级环境变量、客户端秘密注入）见 [references/troubleshooting.md](references/troubleshooting.md)。
 
 只检查变量是否存在，不显示值/长度/前后缀，不读取不相关凭据。Token 一旦出现在聊天或日志里，建议用户到 API 管理页轮换。没有安全输入通道时交由用户配置，暂停实际云端调用。不得代注册、代登录、购买套餐或猜收费。当前公开接口的配额不代表永久免费；正式批处理前重新确认官网限制和费用，收费或额度不足时停下询问。
+
+## Token 配置（与墨卡大师一致）
+
+云端路线确定后，按下面的顺序取 Token，不反复索要：
+
+1. **用户级环境变量 `MINERU_TOKEN`**：存在且非空就直接用，视为已配置；只看是否存在，不打印值。
+2. **本次会话的安全输入**：已通过安全输入或客户端秘密注入提供，就直接用。
+3. **都没有**：按上一节引导用户获取，并通过安全输入交给当前进程。
+
+**用户本次提供了 Token 后，用问题框问一次是否存成用户环境变量**（仅当 `MINERU_TOKEN` 尚未设置）：
+
+> 要把这个 Token 设为用户环境变量 `MINERU_TOKEN` 吗？**请确认这是你自己账户的 Token**——接错会消耗别人的额度。以后就不用每次输入。
+>
+> ① 是我自己的 Token，设置到用户环境变量（仅本机、当前 Windows 用户生效）
+> ② 不用，仅本次使用
+
+- 选①：用 `setx MINERU_TOKEN "<token>"` 或用户级环境变量 API 写入，不要回显 Token；写入会把 Token 放进这条命令，若环境会记录命令历史，提醒用户可以改由他本人在终端执行。成功只报 `token_env: set`，失败说明原因并继续用本次 Token。用户级变量仅影响新进程。
+- 选②：只本次使用，不落盘，报 `token_env: session_only`。
+- **提问必须用当前 Agent 的交互式问题框**（如 `ask_user_question`）；不得只写一句就结束回合，更不得直接终止对话。确实没有控件时才用文字，并写明「等你选择后继续」。
+- **只配置用户自己的 Token**：他人、共享或来源不明的 Token 不得写入本机环境变量；来源存疑时先澄清。
+- 任何情况下都不得把 Token 写进技能文件、状态、日志、Git、清单或交付报告。
+- **Token 存在不等于上传授权**：每次云端上传范围仍需用户明确确认。
 
 ## 大文件工作流
 

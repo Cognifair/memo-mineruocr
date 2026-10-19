@@ -69,14 +69,17 @@ python -B scripts/check_coverage.py "工作目录/job/manifest.json"
 
 ### 6. Token 的三种给法（都不进聊天、不进文件、不进仓库）
 
-1. **当前进程安全输入**（推荐）：见 [cloud-api.md](cloud-api.md) 的 PowerShell 示例。
-2. **用户级环境变量**：用户在自己的终端用 `Read-Host -AsSecureString` 输入后
+读取顺序：**用户级环境变量 `MINERU_TOKEN` → 本次安全输入 → 引导用户获取**。环境变量存在就直接用，不重复索要。
+
+1. **当前进程安全输入**：见 [cloud-api.md](cloud-api.md) 的 PowerShell 示例。
+2. **用户级环境变量（可持久化）**：用户在自己的终端用 `Read-Host -AsSecureString` 输入后
    `[Environment]::SetEnvironmentVariable('MINERU_TOKEN', <明文>, 'User')`；Agent 每次执行命令时用
    `$env:MINERU_TOKEN = [Environment]::GetEnvironmentVariable('MINERU_TOKEN','User')` 取进当前进程。
    结束或轮换后用 `[Environment]::SetEnvironmentVariable('MINERU_TOKEN', $null, 'User')` 清除。
+   用户本次给了 Token 且变量尚未设置时，按主技能用问题框问一次是否写入（`setx MINERU_TOKEN "<token>"` 或上面的 API），只写本人 Token。
 3. **客户端秘密注入机制**（若所用客户端支持）。
 
-外部终端里设置的变量不会自动传进已经启动的桌面 Agent。Token 一旦出现在聊天或日志里，建议到 [API 管理](https://mineru.net/apiManage) 轮换一次；不得用「测试连通性」当借口上传样页。
+外部终端里设置的变量不会自动传进已经启动的桌面 Agent。Token 一旦出现在聊天或日志里，建议到 [API 管理](https://mineru.net/apiManage) 轮换一次；不得用「测试连通性」当借口上传样页。Token 存在不等于上传授权。
 
 ### 7. Windows 控制台中文乱码
 
