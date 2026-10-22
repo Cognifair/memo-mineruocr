@@ -2,6 +2,12 @@
 
 遵循语义化版本：修 bug → patch，新增能力 → minor，改变契约 → major。
 
+## v1.2.1 — 2026-10-22
+
+### 变更
+
+- Token 配置时直接给出 API 管理直达链接 `https://mineru.net/apiManage`，不再让用户按“顶部 API → API 管理”自行找入口；SKILL.md 与 README 同步。
+
 ## v1.2.0 — 2026-10-19
 
 ### 新增

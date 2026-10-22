@@ -2,10 +2,10 @@
 name: memo-mineruocr
 description: Memo-MinerUOCR，识别 PDF、扫描件和文档图片并交付 Markdown，支持大 PDF 按页数和大小拆分、MinerU 云端任务续跑、图片引用整理与有序合并。首次使用先询问本地非 MinerU OCR 或 MinerUOCR；后者引导注册并安全配置 Token。不负责知识拆解、制卡或 Markji 写入。
 metadata:
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
-# Memo-MinerUOCR v1.2.0
+# Memo-MinerUOCR v1.2.1
 
 调用名 `$memo-mineruocr`；展示名「Memo-MinerUOCR」。它是 `memo-cardest` 的可选材料识别支链，也可独立把大文档转为 Markdown。OCR 结果不是已制成的卡片；不要自动总结、删减原文或调用 Markji。
 
@@ -18,15 +18,17 @@ metadata:
 两条路线平级，不预选，不因本机有 Token、安装了 MinerU 或某条路线失败就替用户选择。用户在当前请求中已明确选定时不重复提问。当前聊天可沿用明确选择；跨聊天没有可验证的用户偏好时重新询问。只有用户明确要求记住时，才将 `route=local` 或 `route=mineru-cloud` 写入操作系统用户数据目录 `MemoMinerUOCR/preferences.json`，不保存 Token，不把偏好带入发布仓库。更换路线需明确同意。
 
 - **本地非 MinerU OCR**：读取 [references/local-ocr.md](references/local-ocr.md)。不请求 MinerU Token、不安装/调用 MinerU、不上传文件。遵循当前可用 PDF/图片技能处理，缺少引擎时说明可用选项并等待用户选择或安装授权。
-- **MinerUOCR**：这里指官网托管云端，不等于 GitHub 项目的本地 CLI。先读取 [references/cloud-api.md](references/cloud-api.md)，引导注册与 Token 配置，确认本次文件/目录的上传范围后才调用。没有确认不得以“测试连通性”为由上传样页。
+- **MinerUOCR**：这里指官网托管云端，不等于 GitHub 项目的本地 CLI。先读取 [references/cloud-api.md](references/cloud-api.md)，并直接给出 Token 配置直达链接 [https://mineru.net/apiManage](https://mineru.net/apiManage)，引导注册与 Token 配置，确认本次文件/目录的上传范围后才调用。没有确认不得以“测试连通性”为由上传样页。
 - 维护、安装和测试本技能不是 OCR 业务，不触发路线问题或索要 Token。
 
 ## MinerU 注册与 Token 引导
 
+**Token 配置直达**：[https://mineru.net/apiManage](https://mineru.net/apiManage)（登录后创建/复制 Token；这是唯一需要打开的页面）。
+
 明确给用户以下可点击路径，而不只说“给我密钥”：
 
 1. 打开 [MinerU 官网](https://mineru.net/)，注册或登录。
-2. 进入顶部「API」→「API 管理 / Token 管理」→创建 Token →复制；入口 [API 管理](https://mineru.net/apiManage)，说明见 [官方 API 文档](https://mineru.net/apiManage/docs)。页面名称可能改变，以当前页面为准；不能把文档页当成已创建 Token。
+2. 直接打开 [API 管理](https://mineru.net/apiManage)，创建 Token →复制；接口说明见 [官方 API 文档](https://mineru.net/apiManage/docs)。页面名称可能改变，以当前页面为准；不能把文档页当成已创建 Token。
 3. 在使用者本机通过安全输入将 Token 交给当前进程环境变量 `MINERU_TOKEN`，或使用环境提供的秘密输入工具。不要让用户把 Token 直接贴在聊天、命令参数、技能文件或 GitHub 中；用户已经在聊天里给出时不要要求重发，按下一节流程处理并建议之后到 API 管理页轮换。PowerShell 安全输入示例见 cloud-api 参考；三种可用给法（当前进程安全输入、用户级环境变量、客户端秘密注入）见 [references/troubleshooting.md](references/troubleshooting.md)。
 
 只检查变量是否存在，不显示值/长度/前后缀，不读取不相关凭据。Token 一旦出现在聊天或日志里，建议用户到 API 管理页轮换。没有安全输入通道时交由用户配置，暂停实际云端调用。不得代注册、代登录、购买套餐或猜收费。当前公开接口的配额不代表永久免费；正式批处理前重新确认官网限制和费用，收费或额度不足时停下询问。
@@ -37,7 +39,7 @@ metadata:
 
 1. **用户级环境变量 `MINERU_TOKEN`**：存在且非空就直接用，视为已配置；只看是否存在，不打印值。
 2. **本次会话的安全输入**：已通过安全输入或客户端秘密注入提供，就直接用。
-3. **都没有**：按上一节引导用户获取，并通过安全输入交给当前进程。
+3. **都没有**：把直达链接 [https://mineru.net/apiManage](https://mineru.net/apiManage) 给用户，创建/复制 Token 后通过安全输入交给当前进程。
 
 **用户本次提供了 Token 后，用问题框问一次是否存成用户环境变量**（仅当 `MINERU_TOKEN` 尚未设置）：
 

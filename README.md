@@ -27,8 +27,10 @@ Agent 必须先询问，并等待你选择：
 
 ## MinerU 注册与 Token 配置
 
+**Token 配置直达**：[https://mineru.net/apiManage](https://mineru.net/apiManage)（登录后创建/复制 Token）。
+
 1. 打开 [MinerU 官网](https://mineru.net/)，自行注册或登录。
-2. 进入「API」→「API 管理 / Token 管理」→创建并复制 Token。可从 [API 管理入口](https://mineru.net/apiManage) 进入，接口说明见 [官方 API 文档](https://mineru.net/apiManage/docs)。页面名称以官网当前界面为准。
+2. 打开上面的 API 管理页，创建 Token →复制；接口说明见 [官方 API 文档](https://mineru.net/apiManage/docs)。页面名称以官网当前界面为准。
 3. 使用客户端的安全凭据注入机制，或在执行命令的终端安全输入，把 Token 提供给当前进程环境变量 `MINERU_TOKEN`。具体 PowerShell 示例见 [云端 API 与安全凭据](references/cloud-api.md)。
 4. 若你本次提供了 Token 且尚未设置用户变量，技能会用问题框问一次是否写入用户环境变量 `MINERU_TOKEN`（仅本人 Token；`setx` 或用户级变量 API，不回显）。写入后新会话直接读取，不再重复输入；不写入则仅本次使用。
 
