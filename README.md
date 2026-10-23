@@ -118,3 +118,15 @@ python -B scripts/test_workflow.py
 测试使用临时 PDF、模拟 API 和 ZIP，不访问真实 MinerU、不使用真实 Token、不产生 OCR 费用。离线测试通过不等于真实云端联调成功。
 
 技能的首次 GitHub 上传询问与版本更新由 Skill Publisher 的内置 Memo 模式处理，不依赖单独的 Memo-Publisher。文档处理授权不等于发布技能的授权。
+
+## Memo 系列
+
+<!-- memo-series:begin -->
+| 技能 | 职责 |
+|---|---|
+| [墨卡大师 Memo-Cardest](https://github.com/Cognifair/memo-cardest) | 核心制卡：知识拆解、题型、正文语法与牌组操作 |
+| [墨记表格制作 Memo-Table](https://github.com/Cognifair/memo-table) | 表格图片与 LaTeX array 表格渲染 |
+| [墨记文档导入 Memo-Txtimporter](https://github.com/Cognifair/memo-txtimporter) | TXT 容器格式、分卡校验与图片回填 |
+| [迁墨 Memo-Ankitransfer](https://github.com/Cognifair/memo-ankitransfer) | Anki 图片挖空转墨墨原生遮罩 |
+| [Memo-QAhelper](https://github.com/Cognifair/memo-qahelper) | 墨墨记忆卡使用答疑（官方百科与论坛） |
+<!-- memo-series:end -->

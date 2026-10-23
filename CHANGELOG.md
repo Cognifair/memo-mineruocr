@@ -2,6 +2,12 @@
 
 遵循语义化版本：修 bug → patch，新增能力 → minor，改变契约 → major。
 
+## v1.2.2 — 2026-10-23
+
+### 变更
+
+- README 的「Memo 系列」表与 `references/satellites.md` 改由 `memo-series.json` 生成（`sync-series`），不再手写跨技能清单。
+
 ## v1.2.1 — 2026-10-22
 
 ### 变更
