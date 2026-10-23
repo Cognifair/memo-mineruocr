@@ -233,6 +233,16 @@ class WorkflowTests(unittest.TestCase):
         called.assert_not_called()
         self.assertEqual(self.data()["chunks"][0]["batch_id"], "batch-new")
 
+    def test_replace_batch_rejected_after_upload_or_server_states(self):
+        for state in ("submitted", "running", "converting", "download_pending", "done"):
+            data = self.data()
+            data["chunks"][0].update(batch_id="batch-old", state=state)
+            w.save(self.manifest, data)
+            with patch.object(w, "api") as called, self.assertRaises(ValueError):
+                w.submit(self.manifest, "part-0001", True, "vlm", True)
+            called.assert_not_called()
+            self.assertEqual(self.data()["chunks"][0]["batch_id"], "batch-old")
+
     def test_no_proxy_override_bypasses_environment_proxies(self):
         def proxy_handlers(opener):
             return [h for h in opener.handlers if isinstance(h, urllib.request.ProxyHandler)]

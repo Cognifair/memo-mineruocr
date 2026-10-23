@@ -216,8 +216,11 @@ def submit(manifest, part, allow_upload=False, model="vlm", replace_batch=False)
         if chunk.get("batch_id"):
             if not replace_batch:
                 return {"status": "already_submitted", "chunk": part, "next": "collect"}
-            if chunk["state"] == "submitted":
-                raise ValueError("Chunk was already uploaded; refusing to create a duplicate task")
+            if chunk["state"] != "upload_unknown":
+                if chunk["state"] == "submitted":
+                    raise ValueError("Chunk was already uploaded; refusing to create a duplicate task")
+                raise ValueError("Refusing to replace a batch in state " + repr(chunk["state"])
+                                 + "; only an upload that never completed can be replaced")
             # A batch that never received its file stays "waiting-file" forever and cannot be reused
             # (its signed URL is not persisted). Keep the record instead of erasing it.
             chunk.setdefault("abandoned_batches", []).append(

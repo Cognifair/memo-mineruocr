@@ -2,10 +2,10 @@
 name: memo-mineruocr
 description: Memo-MinerUOCR，识别 PDF、扫描件和文档图片并交付 Markdown，支持大 PDF 按页数和大小拆分、MinerU 云端任务续跑、图片引用整理与有序合并。首次使用先询问本地非 MinerU OCR 或 MinerUOCR；后者引导注册并安全配置 Token。不负责知识拆解、制卡或 Markji 写入。
 metadata:
-  version: "1.2.3"
+  version: "1.2.4"
 ---
 
-# Memo-MinerUOCR v1.2.3
+# Memo-MinerUOCR v1.2.4
 
 调用名 `$memo-mineruocr`；展示名「Memo-MinerUOCR」。它是 `memo-cardest` 的可选材料识别支链，也可独立把大文档转为 Markdown。OCR 结果不是已制成的卡片；不要自动总结、删减原文或调用 Markji。
 
@@ -37,8 +37,8 @@ metadata:
 
 云端路线确定后，按下面的顺序取 Token，不反复索要：
 
-1. **用户级环境变量 `MINERU_TOKEN`**：存在且非空就直接用，视为已配置；只看是否存在，不打印值。
-2. **本次会话的安全输入**：已通过安全输入或客户端秘密注入提供，就直接用。
+1. **本次明确指定**：用户在当前请求里提供或指定的 Token 优先；不静默被环境变量覆盖。失败也不自动换用旧 Token 或其他账户。
+2. **用户级环境变量 `MINERU_TOKEN`**：没有本次指定时，存在且非空就直接用，视为已配置；只看是否存在，不打印值。
 3. **都没有**：把直达链接 [https://mineru.net/apiManage](https://mineru.net/apiManage) 给用户，创建/复制 Token 后通过安全输入交给当前进程。
 
 **用户本次提供了 Token 后，用问题框问一次是否存成用户环境变量**（仅当 `MINERU_TOKEN` 尚未设置）：
