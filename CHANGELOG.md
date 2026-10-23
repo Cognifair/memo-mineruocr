@@ -2,17 +2,35 @@
 
 遵循语义化版本：修 bug → patch，新增能力 → minor，改变契约 → major。
 
+## v1.2.3 — 2026-10-24
+
+### 变更
+
+- 新增 MIT `LICENSE`，README 补 License 说明。
+
 ## v1.2.2 — 2026-10-23
 
 ### 变更
 
 - README 的「Memo 系列」表与 `references/satellites.md` 改由 `memo-series.json` 生成（`sync-series`），不再手写跨技能清单。
 
+## v1.2.3 — 2026-10-24
+
+### 变更
+
+- 新增 MIT `LICENSE`，README 补 License 说明。
+
 ## v1.2.1 — 2026-10-22
 
 ### 变更
 
 - Token 配置时直接给出 API 管理直达链接 `https://mineru.net/apiManage`，不再让用户按“顶部 API → API 管理”自行找入口；SKILL.md 与 README 同步。
+
+## v1.2.3 — 2026-10-24
+
+### 变更
+
+- 新增 MIT `LICENSE`，README 补 License 说明。
 
 ## v1.2.0 — 2026-10-19
 
@@ -26,6 +44,12 @@
 
 - 提问必须使用交互式问题框，不得只写文字结束回合；确实没有控件时才退回文字。
 - Token 仍不写入技能文件、状态、日志、Git、清单或交付报告；Token 存在不等于上传授权。
+
+## v1.2.3 — 2026-10-24
+
+### 变更
+
+- 新增 MIT `LICENSE`，README 补 License 说明。
 
 ## v1.1.0 — 2026-10-16
 
