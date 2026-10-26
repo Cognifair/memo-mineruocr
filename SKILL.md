@@ -2,20 +2,24 @@
 name: memo-mineruocr
 description: Memo-MinerUOCR，识别 PDF、扫描件和文档图片并交付 Markdown，支持大 PDF 按页数和大小拆分、MinerU 云端任务续跑、图片引用整理与有序合并。首次使用先询问本地非 MinerU OCR 或 MinerUOCR；后者引导注册并安全配置 Token。不负责知识拆解、制卡或 Markji 写入。
 metadata:
-  version: "1.2.4"
+  version: "1.2.5"
 ---
 
-# Memo-MinerUOCR v1.2.4
+# Memo-MinerUOCR v1.2.5
 
 调用名 `$memo-mineruocr`；展示名「Memo-MinerUOCR」。它是 `memo-cardest` 的可选材料识别支链，也可独立把大文档转为 Markdown。OCR 结果不是已制成的卡片；不要自动总结、删减原文或调用 Markji。
 
 ## 首次使用：先问路线，再处理
 
-第一次业务使用必须先问并等待明确回答：
+第一次业务使用必须先问并等待明确回答。**问之前先只读检测 `MINERU_TOKEN` 是否存在**（`python -c "import os; print(bool(os.environ.get('MINERU_TOKEN')))"`，只看 true/false，不打印值），把结果写进问题：
 
-> 这次文档识别，你想使用本地非 MinerU OCR，还是使用 MinerUOCR（官网云端，需要上传文件并配置 Token）？
+> 这次文档识别，你想使用本地非 MinerU OCR，还是使用 MinerUOCR（官网云端，需要上传文件；Token 已配置 / 未配置）？
 
-两条路线平级，不预选，不因本机有 Token、安装了 MinerU 或某条路线失败就替用户选择。用户在当前请求中已明确选定时不重复提问。当前聊天可沿用明确选择；跨聊天没有可验证的用户偏好时重新询问。只有用户明确要求记住时，才将 `route=local` 或 `route=mineru-cloud` 写入操作系统用户数据目录 `MemoMinerUOCR/preferences.json`，不保存 Token，不把偏好带入发布仓库。更换路线需明确同意。
+- **只问这一个决策**；不要把模板授权、表格适配、上传范围等混在同一条消息里，用户回答后再问下一个。
+- 用户已配置 Token 时，**不要再让用户确认或重新提供**；未配置时才在该路线选中后给直达链接。
+- 有交互式问题框时优先用问题框；Codex Desktop 的 `request_user_input` 仅允许可选问题、不得用于必答或权限，按其规则用**一条**简洁文字问题，不得把多个问题合并成一段。
+
+两条路线平级，不预选；不要因为本机有 Token、安装了 MinerU 或某条路线失败就替用户选择。用户在当前请求中已明确选定时不重复提问。当前聊天可沿用明确选择；跨聊天没有可验证的用户偏好时重新询问。只有用户明确要求记住时，才将 `route=local` 或 `route=mineru-cloud` 写入操作系统用户数据目录 `MemoMinerUOCR/preferences.json`，不保存 Token，不把偏好带入发布仓库。更换路线需明确同意。
 
 - **本地非 MinerU OCR**：读取 [references/local-ocr.md](references/local-ocr.md)。不请求 MinerU Token、不安装/调用 MinerU、不上传文件。遵循当前可用 PDF/图片技能处理，缺少引擎时说明可用选项并等待用户选择或安装授权。
 - **MinerUOCR**：这里指官网托管云端，不等于 GitHub 项目的本地 CLI。先读取 [references/cloud-api.md](references/cloud-api.md)，并直接给出 Token 配置直达链接 [https://mineru.net/apiManage](https://mineru.net/apiManage)，引导注册与 Token 配置，确认本次文件/目录的上传范围后才调用。没有确认不得以“测试连通性”为由上传样页。
