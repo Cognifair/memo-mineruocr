@@ -1,5 +1,7 @@
 # Memo-MinerUOCR
 
+> 🌐 [墨卡大师 · 专业制卡工作流](https://moka-master.app.workbuddy.host/?sharecode=ZYHGDS4GEB)
+
 把 PDF、扫描材料和文档图片转为便于阅读与后续制卡的 Markdown。针对大 PDF，支持按页数与实际大小拆分、云端分片识别、断点续跑，以及按原页序合并正文和图片素材。
 
 调用名：`$memo-mineruocr`。当前版本以 [SKILL.md](SKILL.md) 的 `metadata.version` 和 [version.json](version.json) 为准。

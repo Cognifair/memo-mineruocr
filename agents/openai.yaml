@@ -1,4 +1,4 @@
 interface:
-  display_name: "Memo-MinerUOCR v1.2.6"
+  display_name: "Memo-MinerUOCR v1.2.7"
   short_description: "先选本地或云端 OCR，自动拆分大 PDF、续跑识别并合并 Markdown 与图片"
   default_prompt: "使用 $memo-mineruocr 处理文档，首次先询问本地非 MinerU OCR 或 MinerUOCR；选云端后引导注册和安全配置 Token，再按授权范围拆分、识别并合并 Markdown。"
