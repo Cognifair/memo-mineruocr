@@ -155,7 +155,7 @@ class WorkflowTests(unittest.TestCase):
         with patch.object(w, "api") as called:
             with self.assertRaisesRegex(ValueError, "consent"):
                 w.submit(self.manifest, "part-0001")
-            with patch.dict(os.environ, {}, clear=True), self.assertRaisesRegex(ValueError, "MINERU_TOKEN"):
+            with patch.dict(os.environ, {}, clear=True), patch.object(w, "get_secret", side_effect=w.SecretNotFound("missing")), self.assertRaisesRegex(ValueError, "MINERU_TOKEN"):
                 w.submit(self.manifest, "part-0001", True)
             called.assert_not_called()
         self.assertEqual(self.data()["chunks"][0]["state"], "prepared")

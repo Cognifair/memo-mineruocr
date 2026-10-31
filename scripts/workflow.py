@@ -17,6 +17,8 @@ import urllib.parse
 import urllib.request
 import zipfile
 
+from secret_resolver import SecretNotFound, get_secret
+
 API = "https://mineru.net/api/v4"
 HOSTS = ("mineru.net", "openxlab.org.cn", "aliyuncs.com", "shlab.tech")
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".jp2", ".webp", ".gif", ".bmp"}
@@ -201,7 +203,10 @@ def get_chunk(data, part):
 
 
 def token_value():
-    value = os.environ.get("MINERU_TOKEN", "").strip()
+    try:
+        value = get_secret("MINERU_TOKEN")[0]
+    except SecretNotFound:
+        raise ValueError("Configure MINERU_TOKEN with secure local input; never paste it into chat") from None
     if not value or any(c in value for c in "\r\n"):
         raise ValueError("Configure MINERU_TOKEN with secure local input; never paste it into chat")
     return value
