@@ -2,6 +2,14 @@
 
 遵循语义化版本：修 bug → patch，新增能力 → minor，改变契约 → major。
 
+## v1.2.10 — 2026-11-03
+
+影响面：memo-mineruocr(README.md, references/satellites.md)
+
+### 变更
+
+- MEMO-MINERUOCR: 系列清单更新为墨兰迪 Memo-Canvas。
+
 ## v1.2.9 — 2026-10-31
 
 影响面：memo-mineruocr(SKILL.md, scripts/secret_resolver.py, scripts/workflow.py, scripts/test_workflow.py, references/credentials.md)
