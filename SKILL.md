@@ -2,10 +2,10 @@
 name: memo-mineruocr
 description: Memo-MinerUOCR，识别 PDF、扫描件和文档图片并交付 Markdown，支持大 PDF 按页数和大小拆分、MinerU 云端任务续跑、图片引用整理与有序合并。首次使用先询问本地非 MinerU OCR 或 MinerUOCR；后者引导注册并安全配置 Token。不负责知识拆解、制卡或 Markji 写入。
 metadata:
-  version: "1.2.10"
+  version: "1.2.11"
 ---
 
-# Memo-MinerUOCR v1.2.10
+# Memo-MinerUOCR v1.2.11
 
 调用名 `$memo-mineruocr`；展示名「Memo-MinerUOCR」。它是 `memo-cardest` 的可选材料识别支链，也可独立把大文档转为 Markdown。OCR 结果不是已制成的卡片；不要自动总结、删减原文或调用 Markji。
 
@@ -88,7 +88,7 @@ python -B scripts/check_coverage.py "工作目录/job/manifest.json"
 
 交付 UTF-8 `document.md`、配套 `assets/` 和 `report.json`；需要时将整个目录打包。报告原始页数、分片页段、全部成功/部分成功状态、实际校验、待人工复核位置。失败或部分完成不能冒称完整成品。清单、源文件路径、任务状态和凭据留在工作区，不混入交付包或技能 Git 仓库。
 
-交给墨卡大师时提供合并后的 Markdown、素材和页段定位，由 `memo-cardest` 决定知识拆解、题型与 Markji 语法；制卡前仍需遵守其专业版确认关卡。本技能不代替 `memo-txtimporter` 的 TXT 容器校验或 `memo-table` 的表格渲染。
+交给墨卡大师时提供合并后的 Markdown、素材和页段定位，由 `memo-cardest` 决定知识拆解、题型与 Markji 语法；制卡前仍需遵守其专业版确认关卡。本技能不代替 `memo-txt` 的 TXT 容器校验或 `memo-table` 的表格渲染。
 
 本技能新建后的 GitHub 上传询问与版本发布由 `maimemo-publisher` 的内置 Memo 模式处理，不再调用单独的发布技能；用户已在本次请求明确要求上传时无需重复询问“要不要”，但目标仓库与可见性仍需确认。不得把 OCR 文档、Token 或运行清单随技能发布。
 
