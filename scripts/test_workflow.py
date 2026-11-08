@@ -50,6 +50,26 @@ class WorkflowTests(unittest.TestCase):
     def data(self):
         return json.loads(self.manifest.read_text())
 
+    def test_agent_requires_upload_consent(self):
+        with self.assertRaisesRegex(ValueError, "allow-upload"):
+            w.agent_parse(self.source, self.root / "agent-job")
+
+    def test_agent_rejects_more_than_20_pages(self):
+        source = self.root / "long.pdf"
+        writer = PdfWriter()
+        for _ in range(21):
+            writer.add_blank_page(width=400, height=600)
+        with source.open("wb") as stream:
+            writer.write(stream)
+        with self.assertRaisesRegex(ValueError, "20-page"):
+            w.agent_parse(source, self.root / "agent-long", allow_upload=True)
+
+    def test_agent_rejects_more_than_10mb(self):
+        source = self.root / "large.png"
+        source.write_bytes(b"x" * (w.AGENT_MAX_BYTES + 1))
+        with self.assertRaisesRegex(ValueError, "10 MB"):
+            w.agent_parse(source, self.root / "agent-large", allow_upload=True)
+
     def results(self, markdown="![figure](images/same.png)\nText\n", extras=None):
         data = self.data()
         for chunk in data["chunks"]:

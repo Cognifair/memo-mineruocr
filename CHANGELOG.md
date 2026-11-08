@@ -2,6 +2,17 @@
 
 遵循语义化版本：修 bug → patch，新增能力 → minor，改变契约 → major。
 
+## v1.3.0 — 2026-11-08
+
+影响面：memo-mineruocr(SKILL.md, README.md, CHANGELOG.md, references/cloud-api.md, scripts/workflow.py, scripts/test_workflow.py)
+
+### 新增
+
+- 云端自动分流：单文件 ≤20 页、≤10 MB、简单版面走 Agent 轻量解析（免 Token，仅 Markdown）；超过任一限制或需要复杂表格/公式/高精度结构走 v4 精准解析（200 页档，需 Token）。由模型自行判断，不额外问用户。
+- 新增 `workflow.py agent <source> <job> --allow-upload`：提交、上传、轮询、下载 Markdown 一条命令完成；拒绝 >20 页、>10 MB、非 PDF/图片和未授权上传。
+- Agent 路线明确 Markdown-only：不生成 ZIP、不拆分合并、不下载远程图片；429/失败不静默切换精准。
+- 测试新增 3 项约束校验，workflow 共 28 项离线测试通过。
+
 ## v1.2.11 — 2026-11-04
 
 影响面：memo-mineruocr(技能名称、调用示例与系列引用) / memo-ankigo / memo-txt

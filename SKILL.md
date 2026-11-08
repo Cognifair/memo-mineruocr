@@ -1,11 +1,11 @@
 ---
 name: memo-mineruocr
-description: Memo-MinerUOCR，识别 PDF、扫描件和文档图片并交付 Markdown，支持大 PDF 按页数和大小拆分、MinerU 云端任务续跑、图片引用整理与有序合并。首次使用先询问本地非 MinerU OCR 或 MinerUOCR；后者引导注册并安全配置 Token。不负责知识拆解、制卡或 Markji 写入。
+description: Memo-MinerUOCR，识别 PDF、扫描件和文档图片并交付 Markdown，支持大 PDF 按页数和大小拆分、MinerU 云端任务续跑、图片引用整理与有序合并；云端自动选择 ≤20 页/10MB 的免 Token 轻量解析或 200 页档精准解析。首次使用先询问本地非 MinerU OCR 或 MinerUOCR；后者引导注册并安全配置 Token。不负责知识拆解、制卡或 Markji 写入。
 metadata:
-  version: "1.2.11"
+  version: "1.3.0"
 ---
 
-# Memo-MinerUOCR v1.2.11
+# Memo-MinerUOCR v1.3.0
 
 调用名 `$memo-mineruocr`；展示名「Memo-MinerUOCR」。它是 `memo-cardest` 的可选材料识别支链，也可独立把大文档转为 Markdown。OCR 结果不是已制成的卡片；不要自动总结、删减原文或调用 Markji。
 
@@ -22,7 +22,8 @@ metadata:
 两条路线平级，不预选；不要因为本机有 Token、安装了 MinerU 或某条路线失败就替用户选择。用户在当前请求中已明确选定时不重复提问。当前聊天可沿用明确选择；跨聊天没有可验证的用户偏好时重新询问。只有用户明确要求记住时，才将 `route=local` 或 `route=mineru-cloud` 写入操作系统用户数据目录 `MemoMinerUOCR/preferences.json`，不保存 Token，不把偏好带入发布仓库。更换路线需明确同意。
 
 - **本地非 MinerU OCR**：读取 [references/local-ocr.md](references/local-ocr.md)。不请求 MinerU Token、不安装/调用 MinerU、不上传文件。遵循当前可用 PDF/图片技能处理，缺少引擎时说明可用选项并等待用户选择或安装授权。
-- **MinerUOCR**：这里指官网托管云端，不等于 GitHub 项目的本地 CLI。先读取 [references/cloud-api.md](references/cloud-api.md)，并直接给出 Token 配置直达链接 [https://mineru.net/apiManage](https://mineru.net/apiManage)，引导注册与 Token 配置，确认本次文件/目录的上传范围后才调用。没有确认不得以“测试连通性”为由上传样页。
+- **MinerUOCR**：这里指官网托管云端，不等于 GitHub 项目的本地 CLI。先读取 [references/cloud-api.md](references/cloud-api.md)，先判断走轻量还是精准：≤20 页、≤10 MB、无复杂表格/公式/版式时走 **Agent 轻量解析**（免 Token）；否则走 **v4 精准解析**（200 页档，需 Token）。只有走精准路线时才给 Token 配置直达链接 [https://mineru.net/apiManage](https://mineru.net/apiManage)。确认本次文件/目录的上传范围后才调用。没有确认不得以“测试连通性”为由上传样页。
+- **轻量/精准由模型自行判断，不额外问用户**：页数、大小、版面复杂度任一项超限就升级到精准；判断结果写进回复。Agent 只有 Markdown，不产出 ZIP/分片合并/本地图片；不要把它说成精准解析。
 - 维护、安装和测试本技能不是 OCR 业务，不触发路线问题或索要 Token。
 
 ## MinerU 注册与 Token 引导
@@ -63,9 +64,15 @@ metadata:
 
 先检查原文件格式、可读性、页数、大小、加密和大致版面。原件只读。PDF 可用 `pypdf` 做无损页对象拆分；它不是本地 OCR 引擎。不要先把整本转成低清图片；单页仍超限时停下说明，压缩或降采样需用户同意。
 
-本技能脚本只依赖 Python 标准库，PDF 拆分另需 `pypdf`。优先查找已有运行时，缺依赖先说明；使用文件处理技能时读取其要求。脚本默认每片最多 150 页、180 MB（十进制），留出官网现行每文件 200 页、200 MB 限制的余量。限制是配置不是永恒保证；云端文档改变时先调整方案，不机械重试。
+本技能脚本只依赖 Python 标准库，PDF 拆分另需 `pypdf`。优先查找已有运行时，缺依赖先说明；使用文件处理技能时读取其要求。精准路线脚本默认每片最多 150 页、180 MB（十进制），留出官网现行每文件 200 页、200 MB 限制的余量。限制是配置不是永恒保证；云端文档改变时先调整方案，不机械重试。
+
+**轻量路线**：单文件、PDF/图片、≤20 页、≤10 MB，免 Token，输出仅 Markdown。超过任一项或有复杂表格/公式/多栏/手写/需要高精度结构时，不要用轻量，改走精准。
 
 ```text
+# 轻量：≤20 页、≤10 MB、简单版面
+python -B scripts/workflow.py agent "原文件.pdf" "工作目录/agent-job" --allow-upload
+
+# 精准：超过轻量限制或需要高精度
 python -B scripts/workflow.py prepare "原文件.pdf" "工作目录/job"
 python -B scripts/workflow.py submit "工作目录/job/manifest.json" --chunk part-0001 --allow-upload
 python -B scripts/workflow.py collect "工作目录/job/manifest.json" --chunk part-0001
@@ -73,7 +80,9 @@ python -B scripts/workflow.py merge "工作目录/job/manifest.json" "交付目�
 python -B scripts/check_coverage.py "工作目录/job/manifest.json"
 ```
 
-命令均以本技能目录为工作目录，或使用脚本绝对路径。`prepare`、`merge` 不联网；只有明确授权后才能传 `--allow-upload`。云端脚本针对官方 **v4 精准解析 API**，不是 MinerU 本地 4.0 `/v1` API；不要混用版本和字段。
+命令均以本技能目录为工作目录，或使用脚本绝对路径。`prepare`、`merge` 不联网；只有明确授权后才能传 `--allow-upload`。轻量脚本走官方 **Agent `/api/v1/agent`**，精准脚本走官方 **v4 `/api/v4`**；不要混用版本和字段。
+
+`agent` 会先校验 20 页/10 MB/单文件，再提交、上传、轮询并下载 Markdown；不生成 ZIP、不拆分、不合并，也不下载 Markdown 里的远程图片。任一限制失败就升级到精准路线；429/IP 限频或解析失败时不要静默切换并假装成功。
 
 `submit` 另有两个恢复向参数：`--replace-batch` 只用于「已建任务但文件始终没上传成功」的分片，旧 batch 记进 `abandoned_batches` 而不是被抹掉，已 `submitted` 的分片拒绝替换；`collect --no-proxy` 让本次请求忽略 `HTTP_PROXY/HTTPS_PROXY`，本机代理破坏结果下载时使用。完整执行顺序、坑与复核清单见 [references/troubleshooting.md](references/troubleshooting.md)。
 

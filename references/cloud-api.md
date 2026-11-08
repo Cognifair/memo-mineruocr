@@ -38,6 +38,37 @@ try {
 
 Agent 轻量接口免 Token，但有更小的大小/页数限制；其概述与参数表对表格公式支持存在不一致。不要用它静默替代用户选定的精准接口或以参数存在就承诺完整能力。
 
+## Agent 轻量解析（免 Token）
+
+Base URL：`https://mineru.net/api/v1/agent`。适合单文件、≤20 页、≤10 MB、简单版面；固定轻量 `pipeline`，输出仅 Markdown。
+
+| 限制 | 值 |
+|---|---|
+| 文件大小 | ≤10 MB |
+| 页数 | ≤20 页 |
+| 批量 | 不支持 |
+| 输出 | Markdown CDN 链接，无 ZIP/JSON/DOCX/LaTeX |
+| 频率 | 按 IP 限频，429 时不要静默切精准 |
+
+本地文件流程：
+
+```text
+POST /api/v1/agent/parse/file  {"file_name": "...", "language": "ch"}
+  → data.task_id / data.file_url
+PUT data.file_url（文件字节，Content-Type 为空）
+GET /api/v1/agent/parse/{task_id}
+  → state=pending/running/uploading/waiting-file/converting/done/failed
+  → done: data.markdown_url
+```
+
+`scripts/workflow.py agent` 已封装上述流程，但必须显式传 `--allow-upload`。它不拆分、不合并、不下载 Markdown 中的远程图片；交付时要说明这是 Markdown-only。
+
+路由由模型自行判断，不额外问用户：
+
+- ≤20 页、≤10 MB、无复杂表格/公式/多栏/手写/高精度结构 → Agent 轻量；
+- 超过任一限制，或需要复杂版面/精准表格公式 → v4 精准 200 页档；
+- Agent 返回 429、超限或失败 → 说明原因，按用户授权决定是否改走精准；不静默切换。
+
 ## 可恢复请求周期
 
 1. `POST https://mineru.net/api/v4/file-urls/batch`，鉴权 `Authorization: Bearer <Token>`，JSON：

@@ -12,10 +12,11 @@
 
 Agent 必须先询问，并等待你选择：
 
-> 使用本地非 MinerU OCR，还是使用 MinerUOCR（官网云端，需要上传文件并配置 Token）？
+> 使用本地非 MinerU OCR，还是使用 MinerUOCR（官网云端，需要上传文件）？
 
 - 本地非 MinerU OCR：使用已安装且可用的本地工具，例如 PaddleOCR 或 Tesseract；不调用 MinerU、不索要 MinerU Token，也不上传材料。原生文字 PDF 可先直接提取文本。没有可用引擎时会说明，不假装已经识别完成。
 - MinerUOCR：调用 [MinerU 官网](https://mineru.net/) 托管的解析 API，不是安装 [MinerU 开源项目](https://github.com/opendatalab/mineru) 后在本地运行。只有确认本次文件上传范围后才发送材料。
+- MinerU 云端内部自动分流：**≤20 页、≤10 MB、简单版面**走 Agent 轻量解析（免 Token，仅 Markdown）；超过限制或需要复杂表格/公式/高精度结构走 v4 精准解析（200 页档，需 Token）。由模型自行判断，不额外问用户。
 
 已有 Token 不代表同意云端上传，路线失败也不会自动切换另一条路线。维护或测试技能不触发 OCR 选择问题。
 

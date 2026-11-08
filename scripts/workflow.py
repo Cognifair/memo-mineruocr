@@ -12,6 +12,7 @@ import shutil
 import stat
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -20,6 +21,9 @@ import zipfile
 from secret_resolver import SecretNotFound, get_secret
 
 API = "https://mineru.net/api/v4"
+AGENT_API = "https://mineru.net/api/v1/agent"
+AGENT_MAX_PAGES = 20
+AGENT_MAX_BYTES = 10_000_000
 HOSTS = ("mineru.net", "openxlab.org.cn", "aliyuncs.com", "shlab.tech")
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".jp2", ".webp", ".gif", ".bmp"}
 
@@ -193,6 +197,106 @@ def api(path, token, payload=None):
         raise RuntimeError(f"MinerU rejected the request (code={body.get('code')}, msg={message!r});"
                            " check quota, Token and rate limit before retrying")
     return body["data"]
+
+
+def agent_api(path, payload=None):
+    headers = {"Accept": "application/json"}
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
+    with request(AGENT_API + path, method="POST" if payload is not None else "GET",
+                 data=json.dumps(payload).encode() if payload is not None else None,
+                 headers=headers) as response:
+        content = response.read(4_000_001)
+    if len(content) > 4_000_000:
+        raise ValueError("Agent API response exceeds limit")
+    body = json.loads(content)
+    if body.get("code") != 0:
+        message = str(body.get("msg", ""))[:200]
+        raise RuntimeError(f"MinerU Agent API rejected the request (code={body.get('code')}, "
+                           f"msg={message!r}); check file limits or IP rate limit")
+    return body["data"]
+
+
+def agent_parse(source, job, allow_upload=False, language="ch", timeout=600):
+    """Single-file, token-free Agent API path; Markdown-only and limited to 20 pages/10 MB."""
+    if not allow_upload:
+        raise ValueError("Explicit file-scope upload consent is required (--allow-upload)")
+    source, job = source.resolve(), job.resolve()
+    if not source.is_file() or source.is_symlink():
+        raise ValueError("Input must be a real local file")
+    if job.exists():
+        raise ValueError("Agent job directory already exists; choose a new path")
+    size = source.stat().st_size
+    if size > AGENT_MAX_BYTES:
+        raise ValueError("File exceeds Agent 10 MB limit; use the standard v4 precise route")
+    if source.suffix.lower() == ".pdf":
+        try:
+            from pypdf import PdfReader
+        except ImportError:
+            raise ValueError("pypdf is required to inspect PDF pages; use the standard route after installing it") from None
+        try:
+            pages = len(PdfReader(source).pages)
+        except Exception:
+            raise ValueError("Cannot read PDF page count; use the standard route") from None
+    elif source.suffix.lower() in IMAGE_EXTS:
+        pages = 1
+    else:
+        raise ValueError("Agent route supports PDF and image files only")
+    if pages > AGENT_MAX_PAGES:
+        raise ValueError("File exceeds Agent 20-page limit; use the standard v4 precise route")
+
+    job.mkdir(parents=True, exist_ok=False)
+    manifest = job / "agent.json"
+    data = {"schema": 1, "route": "agent", "source_name": source.name,
+            "source_sha256": sha(source), "pages": pages, "bytes": size,
+            "state": "prepared", "task_id": None, "markdown": None}
+    save(manifest, data)
+
+    result = agent_api("/parse/file", {"file_name": source.name, "language": language})
+    task_id, file_url = result.get("task_id"), result.get("file_url")
+    if not isinstance(task_id, str) or not task_id or not isinstance(file_url, str) or not file_url:
+        raise ValueError("Unexpected Agent submission response; no task ID was recorded")
+    data.update(task_id=task_id, state="upload_unknown")
+    save(manifest, data)
+    try:
+        with source.open("rb") as stream, request(
+                file_url, method="PUT", data=stream,
+                headers={"Content-Length": str(size), "Content-Type": ""}) as response:
+            if response.status not in (200, 201, 204):
+                raise RuntimeError("Agent upload not acknowledged; preserve task state and query before retrying")
+        data["state"] = "submitted"
+        save(manifest, data)
+    except Exception:
+        save(manifest, data)
+        raise
+
+    deadline = time.monotonic() + max(1, timeout)
+    while time.monotonic() < deadline:
+        result = agent_api(f"/parse/{task_id}")
+        state = result.get("state")
+        data["state"] = str(state or "unknown")
+        if state == "done":
+            markdown_url = result.get("markdown_url")
+            if not isinstance(markdown_url, str) or not markdown_url:
+                raise ValueError("Agent task completed without a Markdown URL")
+            with request(markdown_url) as response:
+                content = response.read(20_000_001)
+            if len(content) > 20_000_000:
+                raise ValueError("Agent Markdown exceeds 20 MB limit")
+            target = job / "full.md"
+            target.write_bytes(content)
+            data.update(state="done", markdown=target.name, markdown_sha256=sha(target))
+            save(manifest, data)
+            return {"status": "done", "route": "agent", "pages": pages,
+                    "markdown": str(target), "bytes": len(content),
+                    "note": "Markdown-only; remote image links are not downloaded"}
+        if state == "failed":
+            save(manifest, data)
+            raise RuntimeError("Agent parse failed; inspect the task in MinerU and do not blindly resubmit")
+        save(manifest, data)
+        time.sleep(3)
+    save(manifest, data)
+    raise RuntimeError("Agent parse timed out; rerun with a new job only after checking the existing task")
 
 
 def get_chunk(data, part):
@@ -457,6 +561,14 @@ def main():
             command.add_argument("--replace-batch", action="store_true",
                                  help="the recorded batch never received its file; keep it in "
                                       "abandoned_batches and create a new one")
+    agent = commands.add_parser("agent", help="token-free lightweight route for <=20 pages / 10 MB")
+    agent.add_argument("source", type=Path)
+    agent.add_argument("job", type=Path)
+    agent.add_argument("--allow-upload", action="store_true")
+    agent.add_argument("--language", default="ch")
+    agent.add_argument("--timeout", type=int, default=600)
+    agent.add_argument("--no-proxy", action="store_true",
+                       help="ignore HTTP_PROXY/HTTPS_PROXY for this run")
     joined = commands.add_parser("merge")
     joined.add_argument("manifest", type=Path)
     joined.add_argument("output", type=Path)
@@ -472,6 +584,8 @@ def main():
                             args.replace_batch)
         elif args.action == "collect":
             result = collect(args.manifest.resolve(), args.chunk)
+        elif args.action == "agent":
+            result = agent_parse(args.source, args.job, args.allow_upload, args.language, args.timeout)
         else:
             result = merge(args.manifest.resolve(), args.output)
         print(json.dumps(result, ensure_ascii=False, indent=2))
