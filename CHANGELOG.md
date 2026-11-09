@@ -2,6 +2,18 @@
 
 遵循语义化版本：修 bug → patch，新增能力 → minor，改变契约 → major。
 
+## v2.0.0 — 2026-11-09
+
+影响面：memo-mineruocr(SKILL.md, README.md, CHANGELOG.md, references/cloud-api.md, references/local-ocr.md, scripts/workflow.py, scripts/test_workflow.py)
+
+### 变更
+
+- **移除 Agent 轻量解析 API**：删除 `workflow.py agent`、`/api/v1/agent` 调用与相关测试，不再按页数自动分流。
+- 云端只保留 **v4 精准解析（200 页档）**，必须使用 Token；只有用户确认上传范围后才发送文件。
+- 本地路线改为 **本地 MinerU OCR 引擎**（`mineru` CLI/本地服务），不上传、不读取 Token，也不静默改用 PaddleOCR/Tesseract。
+- 首次使用只问“本地 MinerU OCR / 云端精准”两条路线；不再出现轻量路线选项。
+- workflow 保留 25 项离线测试并通过。
+
 ## v1.3.0 — 2026-11-08
 
 影响面：memo-mineruocr(SKILL.md, README.md, CHANGELOG.md, references/cloud-api.md, scripts/workflow.py, scripts/test_workflow.py)

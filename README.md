@@ -12,11 +12,11 @@
 
 Agent 必须先询问，并等待你选择：
 
-> 使用本地非 MinerU OCR，还是使用 MinerUOCR（官网云端，需要上传文件）？
+> 使用本地 MinerU OCR 引擎，还是 MinerUOCR 云端精准解析（需要上传文件）？
 
-- 本地非 MinerU OCR：使用已安装且可用的本地工具，例如 PaddleOCR 或 Tesseract；不调用 MinerU、不索要 MinerU Token，也不上传材料。原生文字 PDF 可先直接提取文本。没有可用引擎时会说明，不假装已经识别完成。
-- MinerUOCR：调用 [MinerU 官网](https://mineru.net/) 托管的解析 API，不是安装 [MinerU 开源项目](https://github.com/opendatalab/mineru) 后在本地运行。只有确认本次文件上传范围后才发送材料。
-- MinerU 云端内部自动分流：**≤20 页、≤10 MB、简单版面**走 Agent 轻量解析（免 Token，仅 Markdown）；超过限制或需要复杂表格/公式/高精度结构走 v4 精准解析（200 页档，需 Token）。由模型自行判断，不额外问用户。
+- 本地 MinerU OCR：使用本机安装的 `mineru` CLI/本地服务；不请求 MinerU Token、不上传材料，也不静默改用 PaddleOCR/Tesseract。原生文字 PDF 可先直接提取文本。没有可用引擎时会说明，不假装已经识别完成。
+- MinerUOCR 云端：调用 [MinerU 官网](https://mineru.net/) 托管的 **v4 精准解析 API**，需要 Token；只有确认本次文件上传范围后才发送材料。
+- 不再使用 Agent 轻量解析 API：云端不按页数自动分流，只有 v4 精准一条路。
 
 已有 Token 不代表同意云端上传，路线失败也不会自动切换另一条路线。维护或测试技能不触发 OCR 选择问题。
 
@@ -88,7 +88,7 @@ python -B scripts/check_coverage.py "工作目录/job/manifest.json"
 
 执行顺序、坑与复核清单见 [references/troubleshooting.md](references/troubleshooting.md)。
 
-脚本使用官网 v4 精准解析 API，默认 VLM 并启用表格/公式识别；不与开源 MinerU 本地服务的 `/v1` 接口混用。本地非 MinerU 路线可以复用 PDF 拆分，但本地输出须按真实格式合并，不能伪造云端任务清单。
+脚本使用官网 v4 精准解析 API，默认 VLM 并启用表格/公式识别；不与开源 MinerU 本地服务的 `/v1` 接口混用。本地 MinerU 路线可以复用 PDF 拆分，但本地输出须按真实格式合并，不能伪造云端任务清单。
 
 ## 交付内容
 
@@ -108,7 +108,7 @@ python -B scripts/check_coverage.py "工作目录/job/manifest.json"
 ## 文件与验证
 
 - [SKILL.md](SKILL.md)：Agent 执行规则和授权边界。
-- [references/local-ocr.md](references/local-ocr.md)：本地非 MinerU 路线。
+- [references/local-ocr.md](references/local-ocr.md)：本地 MinerU OCR 路线。
 - [references/cloud-api.md](references/cloud-api.md)：注册、Token、官网接口与续跑说明。
 - [references/troubleshooting.md](references/troubleshooting.md)：跑通路径、常见坑（上传签名 403、代理断流、`waiting-file` 恢复、Token 给法）与复核清单。
 - [scripts/workflow.py](scripts/workflow.py)：PDF 拆分、提交、收集与合并。
